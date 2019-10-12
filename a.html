@@ -1,0 +1,210 @@
+<!DOCTYPE html> <html> <head> <title>Highlighted ASM</title> </head> <body><pre><font color="#700390"></font><font color="#808080">; Programa: Nr. 1</font>
+<font color="#808080">; Užduoties sąlyga: 32</font>
+<font color="#808080">; Atliko: Deividas Zaleskis</font>
+
+.model small
+.stack <font color="#E9967A">100h</font>
+
+BUFFER_SIZE = <font color="#E9967A">10</font>
+MAX_NEEDED_CHARACTERS = <font color="#E9967A">16</font> <font color="#808080">; kadangi 2^16 yra daugiausia, kiek gali reiketi skaitmenu</font>
+	 
+.data
+	number_message db <font color="#E9967A">0Dh</font>, <font color="#E9967A">0Ah</font>,<font color="#000080">"Iveskite skaiciu( max 65535), kuri reikes konvertuoti: </font>", <font color="#E9967A">0Dh</font>, <font color="#E9967A">0Ah</font>, <font color="#000080">'$</font>'
+	base_message db  <font color="#E9967A">0Dh</font>, <font color="#E9967A">0Ah</font>, <font color="#000080">"Iveskite skaiciu, kuris bus sistema(max 65535 ir > 1): </font>", <font color="#E9967A">0Dh</font>, <font color="#E9967A">0Ah</font>, <font color="#000080">'$</font>'
+	error_message	db <font color="#000080">'bandykite dar karta</font>', <font color="#E9967A">0Dh</font>, <font color="#E9967A">0Ah</font>, <font color="#000080">'$</font>'
+	value_error	db <font color="#E9967A">0Dh</font>, <font color="#E9967A">0Ah</font>, <font color="#000080">'netinkama reiksme</font>', <font color="#E9967A">0Dh</font>, <font color="#E9967A">0Ah</font>, <font color="#000080">'$</font>'
+	symbol_error	db <font color="#E9967A">0Dh</font>, <font color="#E9967A">0Ah</font>, <font color="#000080">'netinkamas simbolis</font>', <font color="#E9967A">0Dh</font>, <font color="#E9967A">0Ah</font>, <font color="#000080">'$</font>'
+	newln	db <font color="#E9967A">0Dh</font>, <font color="#E9967A">0Ah</font>, <font color="#000080">'$</font>'
+	number	dw <font color="#E9967A">0</font>
+	base	dw <font color="#E9967A">0</font>
+	pow_ten dw <font color="#E9967A">1</font>
+	ten dw <font color="#E9967A">10</font>
+	number_buffer	db BUFFER_SIZE, <font color="#E9967A">0</font>, BUFFER_SIZE dup (0)
+	base_buffer	db BUFFER_SIZE, <font color="#E9967A">0</font>, BUFFER_SIZE dup (0)
+	result_buffer    db MAX_NEEDED_CHARACTERS dup (?)
+
+.code
+ 
+start:
+
+	<font color="#FF1493">MOV</font> <font color="#6495ED">ax</font>, @data                   <font color="#808080">; perkelti data i registra ax</font>
+	<font color="#FF1493">MOV</font> <font color="#6495ED">ds</font>, <font color="#6495ED">ax</font>                      <font color="#808080">; perkelti ax (data) i data segmenta</font>
+
+prompt1:
+
+	<font color="#FF1493">MOV</font> <font color="#6495ED">AH</font>, <font color="#E9967A">09h</font>
+	<font color="#FF1493">MOV</font> <font color="#6495ED">dx</font>, offset number_message
+	<font color="#FF1493">int</font> <font color="#E9967A">21h</font>
+
+	<font color="#FF1493">MOV</font> <font color="#6495ED">dx</font>, offset number_buffer           <font color="#808080">; skaityti i number bufferer offseta </font>
+	<font color="#FF1493">MOV</font> <font color="#6495ED">AH</font>, <font color="#E9967A">0Ah</font>                     <font color="#808080">; eilutes skaitymo subprograma(bufferERED INPUT)</font>
+	<font color="#FF1493">INT</font> <font color="#E9967A">21h</font>                         <font color="#808080">; dos'o INTeruptas</font>
+	
+	<font color="#FF1493">MOV</font> <font color="#6495ED">cl</font>, number_buffer[1]                    <font color="#808080">; idedam i cl kiek simboliu is viso</font>
+	<font color="#FF1493">CMP</font> <font color="#6495ED">cl</font>, <font color="#E9967A">0</font>                 
+	<font color="#FF1493">JNE</font> prompt2
+	<font color="#FF1493">JMP</font> error1
+	
+prompt2:
+
+	<font color="#FF1493">MOV</font> <font color="#6495ED">AH</font>, <font color="#E9967A">09h</font>
+	<font color="#FF1493">MOV</font> <font color="#6495ED">dx</font>, offset base_message
+	<font color="#FF1493">int</font> <font color="#E9967A">21h</font>
+
+	<font color="#FF1493">MOV</font> <font color="#6495ED">dx</font>, offset base_buffer           <font color="#808080">; skaityti i number bufferer offseta </font>
+	<font color="#FF1493">MOV</font> <font color="#6495ED">AH</font>, <font color="#E9967A">0Ah</font>                     <font color="#808080">; eilutes skaitymo subprograma(bufferERED INPUT)</font>
+	<font color="#FF1493">INT</font> <font color="#E9967A">21h</font>                         <font color="#808080">; dos'o INTeruptas</font>
+	
+	<font color="#FF1493">MOV</font> <font color="#6495ED">AH</font>, <font color="#E9967A">09h</font>
+	<font color="#FF1493">MOV</font> <font color="#6495ED">dx</font>, offset newln
+	<font color="#FF1493">int</font> <font color="#E9967A">21h</font>
+	
+	<font color="#FF1493">MOV</font> <font color="#6495ED">cl</font>, base_buffer[1]                    <font color="#808080">; idedam i cl kiek simboliu is viso</font>
+	<font color="#FF1493">CMP</font> <font color="#6495ED">cl</font>, <font color="#E9967A">0</font>                 <font color="#808080">; patikrinam, ar viskas ok</font>
+	<font color="#FF1493">JNE</font> setup1  <font color="#808080">; jei ok, vykdyk toliau, jei ne - is naujo</font>
+	<font color="#FF1493">JMP</font> error2
+	
+setup1:
+
+	<font color="#FF1493">MOV</font> <font color="#6495ED">si</font>, offset number_buffer+1           <font color="#808080">; priskirti source index'ui bufferio pradzios koordinates</font>
+	<font color="#FF1493">MOV</font> <font color="#6495ED">cl</font>, number_buffer[1]
+	<font color="#FF1493">XOR</font> <font color="#6495ED">ax</font>, <font color="#6495ED">ax</font>
+    <font color="#FF1493">MOV</font> <font color="#6495ED">AL</font>, number_buffer[1]
+    <font color="#FF1493">ADD</font> <font color="#6495ED">si</font>, <font color="#6495ED">ax</font> <font color="#808080">;nustatoma SI padetis ties paskutiniu ivestu skaitmeniu</font>
+	<font color="#FF1493">STD</font> <font color="#808080">; keicia direction flaga i 1</font>
+	<font color="#FF1493">xor</font> <font color="#6495ED">ch</font>, <font color="#6495ED">ch</font>
+    <font color="#FF1493">MOV</font> <font color="#6495ED">bx</font>, pow_ten
+    
+num_buff_convert:
+    
+    <font color="#FF1493">LODSB</font>
+    
+    <font color="#FF1493">CMP</font> <font color="#6495ED">al</font>,48 <font color="#808080">;patikrint ar nera maziau nei 0 (48 ASCII)</font>
+    <font color="#FF1493">JL</font> num_buff_error
+    
+    <font color="#FF1493">CMP</font> <font color="#6495ED">al</font>, <font color="#E9967A">57</font> <font color="#808080">;patikrint ar nera daugiau nei 9 (57 ASCII)</font>
+    <font color="#FF1493">JG</font> num_buff_error
+    
+    <font color="#FF1493">SUB</font> <font color="#6495ED">al</font>, <font color="#E9967A">48</font>
+    <font color="#FF1493">MUL</font> [pow_ten]
+    <font color="#FF1493">MOV</font> <font color="#6495ED">bx</font>, [number]
+    <font color="#FF1493">ADD</font> b, <font color="#6495ED">ax</font>
+    <font color="#FF1493">MOV</font> [number], <font color="#6495ED">bx</font>
+    <font color="#FF1493">MOV</font> <font color="#6495ED">ax</font>, [pow_ten]
+    <font color="#FF1493">MUL</font> [ten]
+    <font color="#FF1493">MOV</font> [pow_ten], <font color="#6495ED">ax</font>
+    <font color="#FF1493">xor</font> <font color="#6495ED">ax</font>, <font color="#6495ED">ax</font>
+    <font color="#FF1493">xor</font> <font color="#6495ED">bx</font>,<font color="#6495ED">bx</font>
+
+    <font color="#FF1493">LOOP</font> num_buff_convert
+    <font color="#FF1493">JMP</font> setup2
+    
+num_buff_error:
+    <font color="#FF1493">MOV</font> <font color="#6495ED">AH</font>, <font color="#E9967A">09h</font>
+	<font color="#FF1493">MOV</font> <font color="#6495ED">dx</font>, offset symbol_error
+	<font color="#FF1493">int</font> <font color="#E9967A">21h</font>
+	<font color="#FF1493">MOV</font> [number], <font color="#E9967A">0</font>
+    <font color="#FF1493">JMP</font> error1
+    
+setup2:
+
+    <font color="#FF1493">MOV</font> <font color="#6495ED">si</font>, offset base_buffer+1
+    <font color="#FF1493">MOV</font> <font color="#6495ED">cl</font>, base_buffer[1]
+    <font color="#FF1493">MOV</font> <font color="#6495ED">ax</font>, <font color="#E9967A">1</font>
+    <font color="#FF1493">MOV</font> [pow_ten], <font color="#6495ED">ax</font>
+    <font color="#FF1493">MOV</font> <font color="#6495ED">AL</font>, base_buffer[1]
+    <font color="#FF1493">ADD</font> <font color="#6495ED">si</font>, <font color="#6495ED">ax</font>
+    <font color="#FF1493">xor</font> <font color="#6495ED">ch</font>, <font color="#6495ED">ch</font>
+    
+base_buff_convert:
+    
+    <font color="#FF1493">LODSB</font>
+    
+    <font color="#FF1493">CMP</font> <font color="#6495ED">al</font>,48 <font color="#808080">;patikrint ar nera maziau nei 0 (48 ASCII)</font>
+    <font color="#FF1493">JL</font> base_buff_error
+    
+    <font color="#FF1493">CMP</font> <font color="#6495ED">al</font>, <font color="#E9967A">57</font> <font color="#808080">;patikrint ar nera daugiau nei 9 (57 ASCII)</font>
+    <font color="#FF1493">JG</font> base_buff_error
+    
+    <font color="#FF1493">SUB</font> <font color="#6495ED">al</font>, <font color="#E9967A">48</font>
+    <font color="#FF1493">MUL</font> [pow_ten]
+    <font color="#FF1493">MOV</font> <font color="#6495ED">bx</font>, [base]
+    <font color="#FF1493">ADD</font> <font color="#6495ED">bx</font>, <font color="#6495ED">ax</font>
+    <font color="#FF1493">MOV</font> [base], <font color="#6495ED">bx</font>
+    <font color="#FF1493">MOV</font> <font color="#6495ED">ax</font>, [pow_ten]
+    <font color="#FF1493">MUL</font> [ten]
+    <font color="#FF1493">MOV</font> [pow_ten], <font color="#6495ED">ax</font>
+    <font color="#FF1493">xor</font> <font color="#6495ED">ax</font>, <font color="#6495ED">ax</font>
+    <font color="#FF1493">xor</font> <font color="#6495ED">bx</font>,<font color="#6495ED">bx</font>
+    
+    <font color="#FF1493">LOOP</font> base_buff_convert
+    <font color="#FF1493">CMP</font> [base], <font color="#E9967A">1</font>
+    <font color="#FF1493">JLE</font> base_value_error
+    <font color="#FF1493">JMP</font> setup3
+    
+base_buff_error:
+    <font color="#FF1493">MOV</font> <font color="#6495ED">AH</font>, <font color="#E9967A">09h</font>
+	<font color="#FF1493">MOV</font> <font color="#6495ED">dx</font>, offset symbol_error
+	<font color="#FF1493">int</font> <font color="#E9967A">21h</font>
+	<font color="#FF1493">MOV</font> [base], <font color="#E9967A">0</font>
+	<font color="#FF1493">MOV</font> [number], <font color="#E9967A">0</font>
+    <font color="#FF1493">JMP</font> error1
+    
+base_value_error:
+    <font color="#FF1493">MOV</font> <font color="#6495ED">AH</font>, <font color="#E9967A">09h</font>
+	<font color="#FF1493">MOV</font> <font color="#6495ED">dx</font>, offset value_error
+	<font color="#FF1493">int</font> <font color="#E9967A">21h</font>
+	<font color="#FF1493">MOV</font> [base], <font color="#E9967A">0</font>
+	<font color="#FF1493">MOV</font> [number], <font color="#E9967A">0</font>
+    <font color="#FF1493">JMP</font> error1
+    
+setup3:
+
+    <font color="#FF1493">XOR</font> <font color="#6495ED">cl</font>, <font color="#6495ED">cl</font>
+    <font color="#FF1493">MOV</font> <font color="#6495ED">si</font>, offset result_buffer
+    <font color="#FF1493">MOV</font> <font color="#6495ED">AX</font>, [number]
+    
+convert_num_to_base:
+    <font color="#808080">;num dalinti is base, kol likes skaicius bus 0. liekanas isvedus atvirksciai, gausim reza </font>
+    <font color="#808080">;dalyba vyksta taip: DX AX esantis sk. dalinamas is kazko, tada rezultatas yra: AX - sveikoji dalis, DX - liekana </font>
+    <font color="#FF1493">DIV</font> [base]
+    <font color="#FF1493">ADD</font> <font color="#6495ED">dx</font>, <font color="#E9967A">48</font>
+	<font color="#FF1493">INC</font> <font color="#6495ED">cl</font>
+	<font color="#FF1493">MOV</font> [si], <font color="#6495ED">dl</font>
+	<font color="#FF1493">XOR</font> <font color="#6495ED">dx</font>, <font color="#6495ED">dx</font> <font color="#808080">; kitos dalybos metu registras turi buti svarus</font>
+	<font color="#FF1493">CMP</font> <font color="#6495ED">ax</font>, <font color="#E9967A">0</font>
+	<font color="#FF1493">JE</font> print_result  <font color="#808080">; jei reikia, vykdo toliau, jei ne - eina i pabaiga</font>
+	<font color="#FF1493">INC</font> <font color="#6495ED">si</font>  <font color="#808080">;kadangi printe bus skaitoma nuo kito galo, padidinti SI tik kai aisku, kad kartos cikla</font>
+	<font color="#FF1493">JMP</font> convert_num_to_base
+
+print_result:
+
+    <font color="#FF1493">LODSB</font>
+    
+    <font color="#FF1493">MOV</font> <font color="#6495ED">AH</font>, <font color="#E9967A">2</font>                    
+	<font color="#FF1493">MOV</font> <font color="#6495ED">dl</font>, <font color="#6495ED">al</font>                    	
+	<font color="#FF1493">INT</font> <font color="#E9967A">21h</font> 
+	
+    <font color="#FF1493">LOOP</font> print_result
+    <font color="#FF1493">JMP</font> ending
+    
+error1:
+	<font color="#FF1493">MOV</font> <font color="#6495ED">AH</font>, <font color="#E9967A">09h</font>
+	<font color="#FF1493">MOV</font> <font color="#6495ED">dx</font>, offset error_message
+	<font color="#FF1493">INT</font> <font color="#E9967A">21h</font>
+	<font color="#FF1493">JMP</font> prompt1
+	
+error2:
+	<font color="#FF1493">MOV</font> <font color="#6495ED">AH</font>, <font color="#E9967A">09h</font>
+	<font color="#FF1493">MOV</font> <font color="#6495ED">dx</font>, offset error_message
+	<font color="#FF1493">INT</font> <font color="#E9967A">21h</font>
+	<font color="#FF1493">JMP</font> prompt2
+	 
+ending:
+	<font color="#FF1493">MOV</font> <font color="#6495ED">ax</font>, <font color="#E9967A">4c00h</font> 		        <font color="#808080">; griztame i dos'a</font>
+	<font color="#FF1493">INT</font> <font color="#E9967A">21h</font>                        	<font color="#808080">; dos'o INTeruptas</font>
+
+end start
+
+x,</pre></body>
+</html>
